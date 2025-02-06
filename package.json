@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "package": "electron-packager . VideoSnatcher --platform=darwin,win32,linux --arch=x64 --icon=assets/appicon",
-    "build": "electron-builder"
+    "build": "electron-builder --mac --universal --publish never"
   },
   "repository": {
     "type": "git",
@@ -33,12 +32,10 @@
     "directories": {
       "output": "dist"
     },
-    "win": {
-      "icon": "assets/appicon.ico",
-      "target": "nsis"
-    },
     "mac": {
-      "icon": "assets/appicon.icns"
+      "icon": "assets/appicon.icns",
+      "identity": null,
+      "target": "dmg"
     },
     "linux": {
       "icon": "assets/appicon.ico",
@@ -48,5 +45,9 @@
         "rpm"
       ]
     }
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "yt-dlp-wrap": "^2.3.12"
   }
 }

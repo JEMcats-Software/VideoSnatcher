@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+    }
+    #markdown-container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="markdown-container">
+    <div id="markdownOutput">Loading...</div>
+  </div>
+
+  <script>
+    // Fetch and display the markdown content
+    fetch('https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/supportedsites.md')
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch Markdown file.");
+        return res.text();
+      })
+      .then(data => {
+        document.getElementById('markdownOutput').innerHTML = marked.parse(data);
+      })
+      .catch(err => {
+        document.getElementById('markdownOutput').innerHTML = "<p style='color: red;'>Error loading content.</p>";
+        console.error(err);
+      });
+  </script>
+</body>
+</html>

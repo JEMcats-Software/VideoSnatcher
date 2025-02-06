@@ -1,11 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Electron App</title>
+    <title>JEMcats-VideoSnatcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <h1>Hello, Electron!</h1>
+
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="absolute top-4 left-4">
+        <img src="../assets/icon.png" alt="Icon" class="w-10 h-10">
+    </div>
+    <div class="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
+        <p style="cursor: pointer;" class="text-blue-600 underline mb-4">Planning To Use YouTube? Click here!</p>
+        <div class="flex">
+            <input type="text" placeholder="Enter video URL..." class="flex-grow p-2 border rounded-l-lg outline-none">
+            <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-r-lg">Download</button>
+        </div>
+        <p onclick="view_supported()" style="cursor: pointer;" class="text-blue-600 underline mb-4">Over 900 sites
+            supported!</p>
+    </div>
+    <script>
+        let download_stage = 0;
+        let current_vid_options = [];
+        const urlParams = new URLSearchParams(window.location.search);
+
+        function getParam(param) {
+            return urlParams.get(param);
+        }
+
+        function view_supported() {
+            fetch(`http://localhost:${getParam("port")}/show_supported_list`)
+                .then(response => {
+                    if (response.status === 200) {
+                        // Do nothing if status is 200
+                        return;
+                    } else {
+                        // If status is not 200, show alert
+                        alert("Failed To Open List");
+                    }
+                })
+                .catch(error => {
+                    // If there is a network or other error
+                    alert("Failed To Open List");
+                });
+        }
+
+        function get_options() {
+            download_stage = 1;
+            fetch(`http://localhost:${getParam("port")}/get_vid_options`)
+                .then(response => {
+                    if (response.status === 200) {
+                        // Do nothing if status is 200
+                        return;
+                    } else {
+                        // If status is not 200, show alert
+                        alert("Failed To Open List");
+                    }
+                })
+                .catch(error => {
+                    // If there is a network or other error
+                    alert("Failed To Open List");
+                });
+        }
+    </script>
 </body>
+
 </html>
