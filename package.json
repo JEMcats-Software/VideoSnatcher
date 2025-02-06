@@ -1,0 +1,52 @@
+{
+  "name": "videosnatcher",
+  "version": "1.0.0",
+  "description": "Download YouTube, Vimeo, and Other Videos with Ease",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-packager . VideoSnatcher --platform=darwin,win32,linux --arch=x64 --icon=assets/appicon",
+    "build": "electron-builder"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JEMcats-Software/VideoSnatcher.git"
+  },
+  "keywords": [
+    "yt",
+    "yt-saver"
+  ],
+  "author": "JEMcats-Software",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JEMcats-Software/VideoSnatcher/issues"
+  },
+  "homepage": "https://github.com/JEMcats-Software/VideoSnatcher#readme",
+  "devDependencies": {
+    "electron": "^34.1.0",
+    "electron-builder": "^25.1.8",
+    "electron-packager": "^17.1.2"
+  },
+  "build": {
+    "appId": "com.jemcats-software.videosnatcher",
+    "productName": "VideoSnatcher",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "assets/appicon.ico",
+      "target": "nsis"
+    },
+    "mac": {
+      "icon": "assets/appicon.icns"
+    },
+    "linux": {
+      "icon": "assets/appicon.ico",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ]
+    }
+  }
+}
