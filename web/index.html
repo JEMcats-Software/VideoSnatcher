@@ -6,6 +6,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JEMcats-VideoSnatcher</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* HTML: <div class="loader"></div> */
+        .loader {
+            --s: 20px;
+
+            --_d: calc(0.353*var(--s));
+            width: calc(var(--s) + var(--_d));
+            aspect-ratio: 1;
+            display: grid;
+        }
+
+        .loader:before,
+        .loader:after {
+            content: "";
+            grid-area: 1/1;
+            clip-path: polygon(var(--_d) 0, 100% 0, 100% calc(100% - var(--_d)), calc(100% - var(--_d)) 100%, 0 100%, 0 var(--_d));
+            background:
+                conic-gradient(from -90deg at calc(100% - var(--_d)) var(--_d),
+                    #E53935 135deg, #972523 0 270deg, #bd2f2d 0);
+            animation: l6 2s infinite;
+        }
+
+        .loader:after {
+            animation-delay: -1s;
+        }
+
+        @keyframes l6 {
+            0% {
+                transform: translate(0, 0)
+            }
+
+            25% {
+                transform: translate(30px, 0)
+            }
+
+            50% {
+                transform: translate(30px, 30px)
+            }
+
+            75% {
+                transform: translate(0, 30px)
+            }
+
+            100% {
+                transform: translate(0, 0)
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -13,13 +61,16 @@
         <img src="../assets/icon.png" alt="Icon" class="w-10 h-10">
     </div>
     <div class="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
-        <p style="cursor: pointer;" class="text-blue-600 underline mb-4">Planning To Use YouTube? Click here!</p>
+        <p onclick="run_youtube_signin()" style="cursor: pointer;" class="text-blue-600 underline mb-4">Planning to download from YouTube? Click here
+            first!</p>
         <div class="flex">
             <input type="text" placeholder="Enter video URL..." class="flex-grow p-2 border rounded-l-lg outline-none">
-            <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-r-lg">Download</button>
+            <button onclick="get_options()"
+                class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-r-lg">Download</button>
         </div>
         <p onclick="view_supported()" style="cursor: pointer;" class="text-blue-600 underline mb-4">Over 900 sites
             supported!</p>
+        <div id="loader" style="margin-bottom:  10px; display: none;" class="loader mx-auto"></div>
     </div>
     <script>
         let download_stage = 0;
@@ -47,22 +98,52 @@
                 });
         }
 
-        function get_options() {
-            download_stage = 1;
-            fetch(`http://localhost:${getParam("port")}/get_vid_options`)
+        function run_youtube_signin() {
+            fetch(`http://localhost:${getParam("port")}/run_youtube_signin`)
                 .then(response => {
                     if (response.status === 200) {
                         // Do nothing if status is 200
                         return;
                     } else {
                         // If status is not 200, show alert
-                        alert("Failed To Open List");
+                        alert("Failed To Run Youtube Setup");
                     }
                 })
                 .catch(error => {
                     // If there is a network or other error
-                    alert("Failed To Open List");
+                    alert("Failed To Run Youtube Setup");
                 });
+        }
+
+        function get_options() {
+            if (document.querySelector("input").value === "") {
+                alert("Please enter a URL");
+                return;
+
+            } else {
+                download_stage = 1;
+                document.getElementById("loader").style.display = "";
+                fetch(`http://localhost:${getParam("port")}/get_vid_options?url=${document.querySelector("input").value}`)
+                    .then(response => {
+
+                        if (response.status === 200) {
+                            response.json().then(data => {
+                                current_vid_options = data;
+                                document.getElementById("loader").style.display = "none";
+                            });
+                            return;
+                        } else {
+                            // If status is not 200, show alert
+                            alert("Failed To Get Info On That Video. Please make sure the URL is valid.");
+                            document.getElementById("loader").style.display = "none";
+                        }
+                    })
+                    .catch(error => {
+                        // If there is a network or other error
+                        alert("Failed To Get Info On That Video. Please make sure the URL is valid.");
+                        document.getElementById("loader").style.display = "none";
+                    });
+            }
         }
     </script>
 </body>

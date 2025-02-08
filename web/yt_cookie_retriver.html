@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Cookie Retriever Setup</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: sans-serif;
+        }
+
+        #container {
+            width: 600px;
+            min-height: 150px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .step {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        input[type="text"] {
+            width: 80%;
+            padding: 8px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #ef4444;
+            color: #ffffff;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            margin: 10px 5px 0 5px;
+        }
+
+        button:hover {
+            background-color: #dc2626;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div id="step1" class="step active">
+            <p>Due to YouTube's privacy restrictions, you need to be logged in to download YouTube videos. Press "Next"
+                to begin the setup. You can cancel the setup at any time by closing this window.</p>
+            <div>
+                <button id="next1">Next</button>
+            </div>
+        </div>
+        <div id="step2" class="step">
+            <p>Please log in to the YouTube window below. Your login information will not be stored. Your cookies will
+                be stored locally but never sent anywhere except youtube.com. After logging in, please click "Next".</p>
+            <div>
+                <button id="back2">Back</button>
+                <button id="next2">Next</button>
+            </div>
+        </div>
+        <div id="summary" class="step">
+            <p>If your login was successful, we have likely retrieved your cookies. After you press "Finish", your
+                cookies will be stored at "~/Library/Application Support/videosnatcher/UserData/yt-cookie.txt". NEVER
+                SHARE YOUR COOKIES FILE, AS DOING SO WILL GIVE OTHERS FULL ACCESS TO YOUR YOUTUBE ACCOUNT.</p>
+            <div>
+                <button id="backSummary">Back</button>
+                <button id="finishSummary">Finish</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 3; // step1, step2, step3, summary
+
+        const urlParams = new URLSearchParams(window.location.search);
+
+        function getParam(param) {
+            return urlParams.get(param);
+        }
+
+        function showStep(step) {
+            // Hide all steps
+            for (let i = 1; i <= totalSteps; i++) {
+                const el = document.getElementById(i === totalSteps ? "summary" : `step${i}`);
+                el.classList.remove("active");
+            }
+            // Show current step
+            const currentEl = document.getElementById(step === totalSteps ? "summary" : `step${step}`);
+            currentEl.classList.add("active");
+        }
+
+        // Next from step1 to step2
+        document.getElementById("next1").addEventListener("click", () => {
+            currentStep = 2;
+            showStep(currentStep);
+        });
+
+        // Back from step2 to step1
+        document.getElementById("back2").addEventListener("click", () => {
+            currentStep = 1;
+            showStep(currentStep);
+        });
+
+        // Next from step2 to step3
+        document.getElementById("next2").addEventListener("click", () => {
+            currentStep = 3;
+            showStep(currentStep);
+            // Finish the setup
+            fetch(`http://localhost:${getParam("port")}/get_youtube_cookies`)
+                .then(response => {
+                    if (response.status === 200) {
+                        // Do nothing if status is 200
+                        return;
+                    } else {
+                        // If status is not 200, show alert
+                        alert("Failed To Get Youtube Cookies");
+                    }
+                })
+                .catch(error => {
+                    // If there is a network or other error
+                    alert("Failed To Get Youtube Cookies");
+                });
+        });
+
+        // Back from summary to step3
+        document.getElementById("backSummary").addEventListener("click", () => {
+            currentStep = 2;
+            showStep(currentStep);
+        });
+
+        document.getElementById("finishSummary").addEventListener("click", () => {
+            // Finish the setup
+            fetch(`http://localhost:${getParam("port")}/finish_youtube_cookies`)
+                .then(response => {
+                    if (response.status === 200) {
+                        // Do nothing if status is 200
+                        return;
+                    } else {
+                        // If status is not 200, show alert
+                        alert("Failed To Finish Youtube Setup");
+                    }
+                })
+                .catch(error => {
+                    // If there is a network or other error
+                    alert("Failed To Finish Youtube Setup");
+                });
+        });
+    </script>
+</body>
+
+</html>
