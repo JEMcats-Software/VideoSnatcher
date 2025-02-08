@@ -1,179 +1,126 @@
 const { app, BrowserWindow, session, screen } = require('electron');
-const { execSync } = require('child_process');
+const { exec } = require('child_process');
 const express = require('express');
-const expressapp = express();
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-let youtube_cookies = "";
+const expressApp = express();
+let serverPort, ytWin;
+let youtubeCookies = "";
+
+const baseDir = path.join(os.homedir(), 'Library/Application Support/videosnatcher');
+const logsDir = path.join(baseDir, 'logs');
+const liveLogPath = path.join(logsDir, 'live.log');
+const userDataDir = path.join(baseDir, 'UserData');
+const executablesDir = path.join(baseDir, 'AppExecutables');
+
+// Ensure logs directory exists and clear log file on startup
+if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+fs.writeFileSync(liveLogPath, '', 'utf8');
+
+// Override console.log and console.error to also write to a log file
+const logStream = fs.createWriteStream(liveLogPath, { flags: 'a' });
+['log', 'error'].forEach(method => {
+    const original = console[method];
+    console[method] = (...args) => {
+        original(...args);
+        logStream.write(args.join(' ') + '\n');
+    };
+});
 
 function convertCookiesToNetscapeFormat(cookies) {
-    let formattedCookies = [];
-    
-    cookies.forEach(cookie => {
-    // Construct the Netscape HTTP Cookie File format line for each cookie
-    let cookieLine = [
-    cookie.domain || '',
-    'TRUE', // Flag indicating if it's a domain cookie (TRUE for host-only)
-    cookie.path,
-    String(cookie.secure), // Secure flag (TRUE or FALSE)
-    String(cookie.expirationDate), // Expiration time in seconds since epoch
-    cookie.name,
-    cookie.value
-    ].join('\t');
-    
-    formattedCookies.push(cookieLine);
-    });
-    
-    return formattedCookies.join('\n');
+    return cookies.map(cookie =>
+        [cookie.domain || '', 'TRUE', cookie.path, String(cookie.secure), String(cookie.expirationDate), cookie.name, cookie.value].join('\t')
+    ).join('\n');
 }
 
-function ensureCookieFile() {
-    // Resolve the full path
-    const userDataDir = path.join(os.homedir(), 'Library/Application Support/videosnatcher/UserData');
-    const cookieFilePath = path.join(userDataDir, 'yt-cookie.txt');
-
-    try {
-        if (!fs.existsSync(cookieFilePath)) {
-            // Ensure the directory exists
-            fs.mkdirSync(userDataDir, { recursive: true });
-
-            // Create the file
-            fs.writeFileSync(cookieFilePath, '', 'utf8');
-            console.log('yt-cookie.txt file created successfully.');
-        } else {
-            console.log('yt-cookie.txt already exists. No action needed.');
-        }
-    } catch (error) {
-        console.error('Error ensuring yt-cookie.txt:', error);
+function ensureFile(filePath, command) {
+    if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        if (command) exec(command);
+        fs.writeFileSync(filePath, '', 'utf8');
+        console.log(`${path.basename(filePath)} created successfully.`);
+    } else {
+        console.log(`${path.basename(filePath)} already exists.`);
     }
 }
 
 function parseVideoFormats(output) {
-    const lines = output.split('\n').filter(line =>
-        !line.includes('[') &&
-        !line.includes(']') &&
-        !line.includes('Downloading') &&
-        !line.includes('Available formats') &&
-        !line.includes('ID') &&
-        !line.includes('-------------------') &&
-        line.trim()
+    const filtered = output.split('\n').filter(line =>
+        line.trim() && !/(?:\[|\]|Downloading|Available formats|ID|-------------------)/.test(line)
     );
 
-    const result = lines.map(line => {
-        let parts = line.split(/\s{2,}/).map(part => part.trim());
-        parts = parts.flatMap(part => part.split('|').map(subPart =>
-            subPart.trim()).filter(subPart => subPart));
-        const firstPart = parts[0].split(' ').map(subPart => subPart.trim());
-        parts[0] = firstPart[0];
-        parts.splice(1, 0, firstPart[1] || '');
-        parts.splice(2, 0, firstPart.slice(2).join(' ') || '');
-        parts = parts.flatMap(part => part.split(' ').map(subPart =>
-            subPart.trim()));
-        parts = parts.filter(value => value && value !== 'unknown' && value
-            !== 'Original');
+    const result = filtered.map(line => {
+        let parts = line.split(/\s{2,}/).map(x => x.trim()).flatMap(part =>
+            part.split('|').map(x => x.trim()).filter(Boolean)
+        );
+        const firstSplit = parts[0].split(' ').map(x => x.trim());
+        parts[0] = firstSplit[0];
+        parts.splice(1, 0, firstSplit[1] || '', firstSplit.slice(2).join(' ') || '');
+        parts = parts.flatMap(part => part.split(' ').map(x => x.trim())).filter(x => x && x !== 'unknown' && x !== 'Original');
         for (let i = 0; i < parts.length - 1; i++) {
-            if (parts[i] === "video" && parts[i + 1] === "only") {
-                parts[i] = "video only";
+            if ((parts[i] === 'video' && parts[i + 1] === 'only') ||
+                    (parts[i] === 'audio' && parts[i + 1] === 'only')) {
+                parts[i] = `${parts[i]} only`;
                 parts.splice(i + 1, 1);
                 break;
             }
-            if (parts[i] === "audio" && parts[i + 1] === "only") {
-                parts[i] = "audio only";
-                parts.splice(i + 1, 1);
-                break;
-            }
-        }
-        if (parts.includes("audio only") && parts.indexOf("audio only") !==
-            parts.lastIndexOf("audio only")) {
-            parts = parts.filter((value, index) => value !== "audio only" ||
-                index === parts.indexOf("audio only"));
         }
         return parts;
-    })
-        .filter(parts => parts.length > 1)  // Remove empty entries
-        .filter(parts => !parts.includes("images")); // Remove entries containing "images"
+    }).filter(parts => parts.length > 1 && !parts.includes('images'));
 
-    const uniqueResult = Array.from(new Set(result.map(a =>
-        JSON.stringify(a))))
-        .map(e => JSON.parse(e));
-
-    const finalResult = uniqueResult.map(item => Array.from(new Set(item)));
-
-    return finalResult;
+    // Remove duplicate entries
+    const unique = Array.from(new Set(result.map(a => JSON.stringify(a)))).map(e => JSON.parse(e));
+    return unique.map(item => Array.from(new Set(item)));
 }
 
-function createWindow() {
+function createMainWindow() {
     const win = new BrowserWindow({
         width: 800,
         height: 600,
-        webPreferences: {
-            nodeIntegration: true
-        }
+        webPreferences: { nodeIntegration: true }
     });
-
     win.loadURL(`file://${__dirname}/web/index.html?port=${serverPort}`);
-    win.on('closed', () => {
-        app.quit();
-    });
-
+    win.on('closed', () => app.quit());
 }
 
-let yt_win;
-
 function createYoutubePopup() {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
-
-    // Adjust width and heights relative to screen size while capping to desired maximums.
-    const winWidth = Math.min(600, Math.floor(screenWidth * 0.7)); 
-    const infoHeight = Math.min(800, Math.floor(screenHeight * 0.2));
+    const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+    const winWidth = Math.min(600, Math.floor(screenWidth * 0.7));
+    const infoHeight = Math.min(200, Math.floor(screenHeight * 0.2));
     const ytHeight = Math.min(400, Math.floor(screenHeight * 0.3));
-
-    // Center horizontally and vertically (info_win on top, yt_win below)
     const startX = Math.floor((screenWidth - winWidth) / 2);
     const infoY = Math.floor((screenHeight - (infoHeight + ytHeight)) / 2);
     const ytY = infoY + infoHeight;
 
-    const info_win = new BrowserWindow({
+    const infoWin = new BrowserWindow({
         x: startX,
         y: infoY,
         width: winWidth,
         height: infoHeight,
-        // resizable: false,
-        minimizable: false,
-        maximizable: false,
-        webPreferences: {
-            nodeIntegration: true
-        }
+        resizable: false,
+        webPreferences: { nodeIntegration: true }
     });
 
-    yt_win = new BrowserWindow({
+    ytWin = new BrowserWindow({
         x: startX,
         y: ytY,
         width: winWidth,
         height: ytHeight,
         resizable: false,
-        minimizable: false,
-        maximizable: false,
-        webPreferences: {
-            nodeIntegration: true
-        }
+        webPreferences: { nodeIntegration: true }
     });
-    yt_win.loadURL(`https://youtube.com`);
-    yt_win.on('closed', () => {
-        if (info_win && !info_win.isDestroyed()) {
-            info_win.close();
-        }
-        youtube_cookies = "";
+    ytWin.loadURL('https://youtube.com');
+    ytWin.on('closed', () => {
+        if (!infoWin.isDestroyed()) infoWin.close();
+        youtubeCookies = "";
     });
-    info_win.loadURL(`file://${__dirname}/web/yt_cookie_retriver.html?port=${serverPort}`);
-    info_win.on('closed', () => {
-        if (yt_win && !yt_win.isDestroyed()) {
-            yt_win.close();
-        }
-        youtube_cookies = "";
+
+    infoWin.loadURL(`file://${__dirname}/web/yt_cookie_retriver.html?port=${serverPort}`);
+    infoWin.on('closed', () => {
+        if (!ytWin.isDestroyed()) ytWin.close();
+        youtubeCookies = "";
     });
 }
 
@@ -181,59 +128,56 @@ function createListWindow() {
     const win = new BrowserWindow({
         width: 450,
         height: 600,
-        webPreferences: {
-            nodeIntegration: true
-        }
+        webPreferences: { nodeIntegration: true }
     });
-
     win.loadURL(`file://${__dirname}/web/supported.html`);
 }
 
-let serverPort;
-const server = expressapp.listen(0, () => {
+// Start express server on a random port
+const server = expressApp.listen(0, () => {
     serverPort = server.address().port;
-    console.log(`Server is running on port ${serverPort}`);
+    console.log(`Server running on port ${serverPort}`);
 });
 
-expressapp.get('/get_vid_options', (req, res) => {
-    try {
-        const videoUrl = req.query.url; // Get the 'url' parameter from the request
+expressApp.get('/get_vid_options', (req, res) => {
+    const videoUrl = req.query.url;
+    if (!videoUrl) return res.status(400).send('Missing "url" parameter');
 
-        if (!videoUrl) {
-            return res.status(400).send('Missing "url" parameter');
+    const cookiePart = videoUrl.includes("youtube.com")
+        ? ` --cookies "${path.join(userDataDir, 'yt-cookie.txt')}"`
+        : '';
+    const command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${cookiePart} -F "${videoUrl}"`;
+
+    exec(command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
+        if (error) {
+            console.error(error);
+            return res.status(500).send('Error fetching video options');
         }
-
-        if (videoUrl.includes("youtube.com")) {
-            const output = execSync(`./yt-dlp-mac --cookies "~/Library/Application Support/videosnatcher/UserData/yt-cookie.txt" -F "${videoUrl}"`, { encoding: 'utf8' });
-            const parsedOutput = parseVideoFormats(output);
-
-            console.log(parsedOutput);
-            res.send(parsedOutput);
-        } else {
-            const output = execSync(`./yt-dlp-mac -F "${videoUrl}"`, { encoding: 'utf8' });
-            const parsedOutput = parseVideoFormats(output);
-
-            console.log(parsedOutput);
-            res.send(parsedOutput);
+        try {
+            const parsed = parseVideoFormats(stdout);
+            console.log(parsed);
+            res.send(parsed);
+        } catch (e) {
+            console.error(e);
+            res.status(500).send('Error parsing video options');
         }
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error fetching video options');
-    }
+    });
 });
 
-expressapp.get('/show_supported_list', (req, res) => {
-    createListWindow()
+expressApp.get('/show_supported_list', (req, res) => {
+    createListWindow();
+    res.send('Success');
 });
 
-expressapp.get('/run_youtube_signin', (req, res) => {
-    createYoutubePopup()
+expressApp.get('/run_youtube_signin', (req, res) => {
+    createYoutubePopup();
+    res.send('Success');
 });
 
-expressapp.get('/get_youtube_cookies', async (req, res) => {
+expressApp.get('/get_youtube_cookies', async (req, res) => {
     try {
         const cookies = await session.defaultSession.cookies.get({ url: 'https://youtube.com' });
-        youtube_cookies = convertCookiesToNetscapeFormat(cookies);
+        youtubeCookies = convertCookiesToNetscapeFormat(cookies);
         res.send("Success");
     } catch (error) {
         console.error("Error getting YouTube cookies:", error);
@@ -241,17 +185,21 @@ expressapp.get('/get_youtube_cookies', async (req, res) => {
     }
 });
 
-expressapp.get('/finish_youtube_cookies', (req, res) => {
-    fs.writeFileSync(path.join(os.homedir(), 'Library/Application Support/videosnatcher/UserData/yt-cookie.txt'), youtube_cookies);
+expressApp.get('/finish_youtube_cookies', (req, res) => {
+    fs.writeFileSync(path.join(userDataDir, 'yt-cookie.txt'), youtubeCookies);
     res.send("Success");
-    yt_win.close();
+    if (ytWin && !ytWin.isDestroyed()) ytWin.close();
 });
 
-app.whenReady().then(ensureCookieFile);
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    ensureFile(path.join(userDataDir, 'yt-cookie.txt'));
+    ensureFile(
+        path.join(executablesDir, 'yt-dlp-mac'),
+        `cd "${executablesDir}" && wget https://jemcats.software/github_pages/VideoSnatcher/files/yt-dlp-mac && chmod +x yt-dlp-mac`
+    );
+    createMainWindow();
+});
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
+    if (process.platform !== 'darwin') app.quit();
 });
