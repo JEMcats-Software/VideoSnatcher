@@ -1,8 +1,9 @@
 ![VideoSnatcher Logo](./assets/icon.png)
 # VideoSnatcher
-LocalSpeech by JEMcats-Software aims to read text for you locally without using any cloud based processing. Currently we are offering a pre built DMG for MacOS with Apple Silicon.
-
+VideoSnatcher by JEMcats-Software allows for you to download videos from Youtube and similer platforms.
 ## To-Do List
+- [ ] Add Dark Mode
+- [ ] Add Windows Support
 - [ ] Launch v1.0.0
 
 ## Support
