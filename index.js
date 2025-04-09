@@ -4,6 +4,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const https = require('https'); // Add this import
 
 const expressApp = express();
 let serverPort, ytWin;
@@ -30,17 +31,49 @@ const logStream = fs.createWriteStream(liveLogPath, { flags: 'a' });
 });
 
 function convertCookiesToNetscapeFormat(cookies) {
-    return cookies.map(cookie =>
-        [cookie.domain || '', 'TRUE', cookie.path, String(cookie.secure), String(cookie.expirationDate), cookie.name, cookie.value].join('\t')
-    ).join('\n');
+    return [
+        "# Netscape HTTP Cookie File", // Required header
+        ...cookies.map(cookie => {
+            let domain = cookie.domain || "";
+            if (!domain.startsWith(".")) {
+                domain = "." + domain; // Ensure proper domain format
+            }
+            return [
+                domain,
+                "TRUE", // Include subdomains (assumed safe for most use cases)
+                cookie.path || "/", // Default to root path if missing
+                cookie.secure ? "TRUE" : "FALSE", // Secure flag
+                Math.floor(cookie.expirationDate || 0), // Ensure it's a valid timestamp
+                cookie.name,
+                cookie.value
+            ].join("\t");
+        })
+    ].join("\n");
 }
 
-function ensureFile(filePath, command) {
+function ensureFile(filePath, url) {
     if (!fs.existsSync(filePath)) {
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
-        if (command) exec(command);
-        fs.writeFileSync(filePath, '', 'utf8');
-        console.log(`${path.basename(filePath)} created successfully.`);
+        if (url) {
+            const file = fs.createWriteStream(filePath);
+            https.get(url, (response) => {
+                if (response.statusCode === 200) {
+                    response.pipe(file);
+                    file.on('finish', () => {
+                        file.close();
+                        fs.chmodSync(filePath, '755'); // Make the file executable
+                        console.log(`${path.basename(filePath)} downloaded and made executable.`);
+                    });
+                } else {
+                    console.error(`Failed to download ${url}. Status code: ${response.statusCode}`);
+                }
+            }).on('error', (err) => {
+                console.error(`Error downloading ${url}:`, err.message);
+            });
+        } else {
+            fs.writeFileSync(filePath, '', 'utf8');
+            console.log(`${path.basename(filePath)} created successfully.`);
+        }
     } else {
         console.log(`${path.basename(filePath)} already exists.`);
     }
@@ -195,7 +228,7 @@ app.whenReady().then(() => {
     ensureFile(path.join(userDataDir, 'yt-cookie.txt'));
     ensureFile(
         path.join(executablesDir, 'yt-dlp-mac'),
-        `cd "${executablesDir}" && wget https://jemcats.software/github_pages/VideoSnatcher/files/yt-dlp-mac && chmod +x yt-dlp-mac`
+        'https://jemcats.software/github_pages/VideoSnatcher/files/yt-dlp-mac'
     );
     createMainWindow();
 });

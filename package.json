@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac --universal --publish never"
+    "build-dev": "electron-builder --mac --universal --publish never",
+    "build-deploy": "electron-builder --mac --universal --publish never && xcrun notarytool submit dist/VideoSnatcher-1.0.0-universal.dmg --keychain-profile jemcats-dev-icloud-pass --wait"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,13 @@
     "electron-packager": "^17.1.2"
   },
   "build": {
+    "files": [
+      "web/**/*",
+      "assets/**/*",
+      "index.js",
+      "package.json",
+      "package-lock.json"
+    ],
     "appId": "com.jemcats-software.videosnatcher",
     "productName": "VideoSnatcher",
     "directories": {
