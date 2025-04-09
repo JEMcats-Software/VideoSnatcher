@@ -174,10 +174,15 @@ const server = expressApp.listen(0, () => {
 
 expressApp.get('/get_vid_options', (req, res) => {
     const videoUrl = req.query.url;
+    const vimeoPass = req.query.vimeoPass;
+
     if (!videoUrl) return res.status(400).send('Missing "url" parameter');
 
-    const cookiePart = videoUrl.includes("youtube.com")
+    let cookiePart = videoUrl.includes("youtube.com")
         ? ` --cookies "${path.join(userDataDir, 'yt-cookie.txt')}"`
+        : '';
+    cookiePart = vimeoPass
+        ? ` --video-password "${vimeoPass}"`
         : '';
     const command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${cookiePart} -F "${videoUrl}"`;
 

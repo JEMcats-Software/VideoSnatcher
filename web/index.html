@@ -115,6 +115,17 @@
             font-size: 1rem;
         }
 
+        .input-field-rounded {
+            flex-grow: 1;
+            padding: 0.5rem;
+            /* p-2 */
+            border: 1px solid #ccc;
+            border-radius: 0.5rem;
+            outline: none;
+            font-size: 1rem;
+            width: 90%;
+        }
+
         .submit-btn {
             background-color: #ef4444;
             /* red-500 */
@@ -150,17 +161,29 @@
     <div class="card">
         <p onclick="run_youtube_signin()" class="link-blue">Planning to download from YouTube? Click here first!</p>
         <div class="input-btn-container">
-            <input type="text" placeholder="Enter video URL..." class="input-field">
+            <input id="url_input" type="text" placeholder="Enter video URL..." class="input-field">
             <button onclick="get_options()" class="submit-btn">Download</button>
         </div>
+        <input id="vimeo_pass" style="display: none;" type="text" placeholder="Enter video password. If there is none, please leave blank." class="input-field-rounded">
         <p onclick="view_supported()" class="link-blue">Over 900 sites supported!</p>
         <div id="loader" style="margin-bottom: 10px; display: none;" class="loader mx-auto"></div>
     </div>
     <script>
+        document.getElementById('url_input').addEventListener('input', function (event) {
+            const inputField = event.target;
+            const inputValue = inputField.value;
+
+            if (inputValue.includes("vimeo.com")) {
+            document.getElementById("vimeo_pass").style.display = "block";
+            } else {
+            document.getElementById("vimeo_pass").style.display = "none";
+            }
+        });
+
         let download_stage = 0;
         let current_vid_options = [];
         const urlParams = new URLSearchParams(window.location.search);
-
+        
         function parseArrayToDictionary(arr) {
             const result = {};
             result.id = arr[0];
@@ -217,9 +240,16 @@
                 alert("Please enter a URL");
                 return;
             } else {
+                const vimeo_pass = document.getElementById("vimeo_pass");
                 download_stage = 1;
                 document.getElementById("loader").style.display = "";
-                fetch(`http://localhost:${getParam("port")}/get_vid_options?url=${urlInput.value}`)
+                let fetch_url;
+                if (vimeo_pass.value !== "") {
+                    fetch_url = `http://localhost:${getParam("port")}/get_vid_options?url=${urlInput.value}&vimeoPass=${vimeo_pass.value}`;
+                } else {
+                    fetch_url = `http://localhost:${getParam("port")}/get_vid_options?url=${urlInput.value}`;
+                }
+                fetch(fetch_url)
                     .then(response => {
                         if (response.status === 200) {
                             response.json().then(data => {
