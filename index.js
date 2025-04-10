@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const https = require('https'); // Add this import
+const { v4: uuidv4 } = require('uuid');
+
 
 const expressApp = express();
 let serverPort, ytWin;
@@ -80,11 +82,23 @@ function ensureFile(filePath, url) {
 }
 
 function parseVideoFormats(output) {
-    const filtered = output.split('\n').filter(line =>
-        line.trim() && !/(?:\[|\]|Downloading|Available formats|ID|-------------------)/.test(line)
-    );
+    const filtered = output.split('\n').filter(line => {
+        line = line.trim();
+        if (!line) return false;
+        if (/(Downloading|Available formats|ID|-------------------)/.test(line)) return false;
+        const matches = line.match(/\[[^\]]*\]/g);
+        if (matches) {
+            for (const m of matches) {
+                const content = m.slice(1, -1);
+                // Allow only if content has exactly two letters.
+                if (!/^[A-Za-z]{2}$/.test(content)) return false;
+            }
+        }
+        return true;
+    });
 
     const result = filtered.map(line => {
+        if (line.toLowerCase().includes('quic')) return null; // Skip lines containing 'quic'
         let parts = line.split(/\s{2,}/).map(x => x.trim()).flatMap(part =>
             part.split('|').map(x => x.trim()).filter(Boolean)
         );
@@ -101,7 +115,7 @@ function parseVideoFormats(output) {
             }
         }
         return parts;
-    }).filter(parts => parts.length > 1 && !parts.includes('images'));
+    }).filter(parts => parts && parts.length > 1 && !parts.includes('images'));
 
     // Remove duplicate entries
     const unique = Array.from(new Set(result.map(a => JSON.stringify(a)))).map(e => JSON.parse(e));
@@ -178,13 +192,13 @@ expressApp.get('/get_vid_options', (req, res) => {
 
     if (!videoUrl) return res.status(400).send('Missing "url" parameter');
 
-    let cookiePart = videoUrl.includes("youtube.com")
+    let parameters = videoUrl.includes("youtube.com")
         ? ` --cookies "${path.join(userDataDir, 'yt-cookie.txt')}"`
         : '';
-    cookiePart = vimeoPass
+    parameters = vimeoPass
         ? ` --video-password "${vimeoPass}"`
         : '';
-    const command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${cookiePart} -F "${videoUrl}"`;
+    const command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${parameters} -F "${videoUrl}"`;
 
     exec(command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
         if (error) {
@@ -193,13 +207,55 @@ expressApp.get('/get_vid_options', (req, res) => {
         }
         try {
             const parsed = parseVideoFormats(stdout);
-            console.log(parsed);
             res.send(parsed);
         } catch (e) {
             console.error(e);
             res.status(500).send('Error parsing video options');
         }
     });
+});
+
+expressApp.get('/download_vid', (req, res) => {
+    const videoUrl = req.query.url;
+    const vimeoPass = req.query.vimeoPass;
+    const videoFormat = req.query.id;
+    const videoType = req.query.type;
+
+    if (!videoUrl) return res.status(400).send('Missing "url" parameter');
+    if (!videoFormat) return res.status(400).send('Missing "format" parameter');
+
+    let parameters = videoUrl.includes("youtube.com")
+        ? ` --cookies "${path.join(userDataDir, 'yt-cookie.txt')}"`
+        : '';
+    parameters = vimeoPass && vimeoPass !== undefined
+        ? ` --video-password "${vimeoPass}"`
+        : '';
+
+    if (videoFormat.includes('vid') && videoFormat.includes('aud')) {
+        const video_download_id = uuidv4();
+        const audio_download_id = uuidv4();
+        const [videoId, audioId] = videoFormat
+            .split(',')
+            .map(part => part.split(':')[1].trim());
+        
+    } else {
+        const video_download_id = uuidv4();
+        
+        const command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${parameters} -f "${videoFormat}" "${videoUrl}" -o "${path.join(baseDir, 'OutputFiles')}/${video_download_id}.${videoType}"`;
+        exec(command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).send('Error downloading video');
+            }
+            try {
+                const download_path = `${path.join(baseDir, 'OutputFiles')}/${video_download_id}.${videoType}`
+                res.send(JSON.stringify({ download_path }));
+            } catch (e) {
+                console.error(e);
+                res.status(500).send('Error downloading video');
+            }
+        });
+    }
 });
 
 expressApp.get('/show_supported_list', (req, res) => {
@@ -234,6 +290,10 @@ app.whenReady().then(() => {
     ensureFile(
         path.join(executablesDir, 'yt-dlp-mac'),
         'https://jemcats.software/github_pages/VideoSnatcher/files/yt-dlp-mac'
+    );
+    ensureFile(
+        path.join(executablesDir, 'ffmpeg-mac'),
+        'https://jemcats.software/github_pages/VideoSnatcher/files/ffmpeg-mac'
     );
     createMainWindow();
 });

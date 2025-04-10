@@ -67,6 +67,7 @@
             min-height: 100vh;
             font-family: sans-serif;
             position: relative;
+            flex-direction: column;
         }
 
         .icon-container {
@@ -87,6 +88,7 @@
             /* max-w-lg */
             width: 100%;
             text-align: center;
+            margin-bottom: 2rem;
         }
 
         .link-blue {
@@ -168,6 +170,75 @@
         <p onclick="view_supported()" class="link-blue">Over 900 sites supported!</p>
         <div id="loader" style="margin-bottom: 10px; display: none;" class="loader mx-auto"></div>
     </div>
+    <div id="video_options" style="display: none;" class="card">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+            <thead>
+                <tr style="background-color: #f1f5f9; /* Tailwind's bg-gray-200 */">
+                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb; /* Tailwind's border-gray-300 */">Resolution</th>
+                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Contains</th>
+                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Format</th>
+                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Size</th>
+                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Download</th>
+                </tr>
+            </thead>
+            <tbody id="video_options_table">
+                <!-- Rows will be dynamically added here -->
+            </tbody>
+        </table>
+        <div id="downloader_loader" style="margin-bottom: 10px; margin-top: 10px; display: none;" class="loader mx-auto"></div>
+        <script>
+            function populateTable(options) {
+                const tableBody = document.getElementById("video_options_table");
+                tableBody.innerHTML = ""; // Clear existing rows
+                options.forEach(option => {
+                    const row = document.createElement("tr");
+                    row.style.border = "1px solid #e5e7eb";
+                    row.innerHTML = `
+                        <td style="padding: 0.5rem; text-align: center;">${option.res || "N/A"}</td>
+                        <td style="padding: 0.5rem; text-align: center;">${option.contains || "N/A"}</td>
+                        <td style="padding: 0.5rem; text-align: center;">${option.format || "N/A"}</td>
+                        <td style="padding: 0.5rem; text-align: center;">${option.size || "N/A"}</td>
+                        <td style="padding: 0.5rem; text-align: center;">
+                            <button onclick="downloadVideo('${option.id}', '${option.url}', '${option.pass}', '${option.format}')" style="background-color: #2563eb; color: white; padding: 0.25rem 0.5rem; border: none; border-radius: 0.25rem; cursor: pointer;">
+                                Download
+                            </button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+        </script>
+    </div>
+        <script>
+            function downloadVideo(id, url, pass, format) {
+                document.getElementById("downloader_loader").style.display = "";
+                let fetch_url;
+                if (pass && pass !== "undefined") {
+                    fetch_url = `http://localhost:${getParam("port")}/download_vid?url=${url}&id=${id}&vimeoPass=${pass}&type=${format}`;
+                } else {
+                    fetch_url = `http://localhost:${getParam("port")}/download_vid?url=${url}&id=${id}&format=${format}`;
+                }
+                fetch(fetch_url)
+                    .then(response => {
+                        if (response.status === 200) {
+                            response.json().then(data => {
+                                alert("Download finished!");
+                                document.getElementById("downloader_loader").style.display = "none";
+                            });
+                        } else {
+                            response.text().then(text => {
+                                alert("Failed to start download. Please try again.");
+                                document.getElementById("downloader_loader").style.display = "none";
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        alert("Failed to start download. Please try again.");
+                        document.getElementById("downloader_loader").style.display = "none";
+                    });
+            }
+        </script>
+    </div>
     <script>
         document.getElementById('url_input').addEventListener('input', function (event) {
             const inputField = event.target;
@@ -184,16 +255,22 @@
         let current_vid_options = [];
         const urlParams = new URLSearchParams(window.location.search);
         
-        function parseArrayToDictionary(arr) {
+        function parseArrayToDictionary(arr, url, pass) {
             const result = {};
             result.id = arr[0];
+            result.url = url;
+            console.log(pass)
+            if (pass) {
+                result.pass = pass;
+            }
             arr.forEach(value => {
                 if (value.includes('x')) {
                     result.res = value;
                 } else if (value.includes('only') && value !== 'only') {
                     result.contains = value;
-                } else if (value.endsWith('MiB')) {
+                } else if (value.endsWith('iB')) {
                     result.size = value;
+                    result.size = result.size.replace("~", "")
                 } else if (['mp4', 'mp3', 'webm'].includes(value)) {
                     result.format = value;
                 }
@@ -256,8 +333,34 @@
                                 document.getElementById("loader").style.display = "none";
                                 current_vid_options = [];
                                 data.forEach(option => {
-                                    current_vid_options.push(parseArrayToDictionary(option));
+                                    if (vimeo_pass.value !== "") {
+                                        current_vid_options.push(parseArrayToDictionary(option, urlInput.value, vimeo_pass.value));
+                                    } else {
+                                        current_vid_options.push(parseArrayToDictionary(option, urlInput.value));
+                                    }
                                 });
+
+                                // Add combined options
+                                const videoOnlyOptions = current_vid_options.filter(opt => opt.contains === "video only");
+                                const audioOnlyOptions = current_vid_options.filter(opt => opt.contains === "audio only");
+
+                                videoOnlyOptions.forEach(videoOption => {
+                                    const lastAudioOption = audioOnlyOptions[audioOnlyOptions.length - 1];
+                                    if (lastAudioOption) {
+                                        current_vid_options.push({
+                                            res: videoOption.res,
+                                            contains: "combined",
+                                            format: videoOption.format,
+                                            size: videoOption.size,
+                                            id: `vid: ${videoOption.id}, aud: ${lastAudioOption.id}`,
+                                            url: videoOption.url,
+                                            pass: videoOption.pass
+                                        });
+                                    }
+                                });
+
+                                populateTable(current_vid_options);
+                                document.getElementById("video_options").style.display = "";
                                 console.log(current_vid_options);
                             });
                             return;
