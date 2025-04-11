@@ -108,7 +108,7 @@ function parseVideoFormats(output) {
         parts = parts.flatMap(part => part.split(' ').map(x => x.trim())).filter(x => x && x !== 'unknown' && x !== 'Original');
         for (let i = 0; i < parts.length - 1; i++) {
             if ((parts[i] === 'video' && parts[i + 1] === 'only') ||
-                    (parts[i] === 'audio' && parts[i + 1] === 'only')) {
+                (parts[i] === 'audio' && parts[i + 1] === 'only')) {
                 parts[i] = `${parts[i]} only`;
                 parts.splice(i + 1, 1);
                 break;
@@ -219,10 +219,11 @@ expressApp.get('/download_vid', (req, res) => {
     const videoUrl = req.query.url;
     const vimeoPass = req.query.vimeoPass;
     const videoFormat = req.query.id;
-    const videoType = req.query.type;
+    const videoType = req.query.format;
 
     if (!videoUrl) return res.status(400).send('Missing "url" parameter');
     if (!videoFormat) return res.status(400).send('Missing "format" parameter');
+    if (!videoType) return res.status(400).send('Missing "type" parameter');
 
     let parameters = videoUrl.includes("youtube.com")
         ? ` --cookies "${path.join(userDataDir, 'yt-cookie.txt')}"`
@@ -237,10 +238,64 @@ expressApp.get('/download_vid', (req, res) => {
         const [videoId, audioId] = videoFormat
             .split(',')
             .map(part => part.split(':')[1].trim());
-        
+        const [videoForm, audioForm] = videoType
+            .split(',')
+            .map(part => part.split(':')[1].trim());
+
+        // Download video parts
+        const download_path = `${path.join(baseDir, 'OutputFiles')}/${video_download_id}.${videoForm}`
+        const vid_command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${parameters} -f "${videoId}" "${videoUrl}" -o "${path.join(baseDir, 'OutputFiles/tmp')}/${video_download_id}.${videoForm}"`;
+        const aud_command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${parameters} -f "${audioId}" "${videoUrl}" -o "${path.join(baseDir, 'OutputFiles/tmp')}/${audio_download_id}.${audioForm}"`;
+        exec(aud_command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).send('Error downloading audio');
+            }
+            try {
+                console.log('Audio Downloaded');
+                exec(vid_command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
+                    if (error) {
+                        console.error(error);
+                        return res.status(500).send('Error downloading video');
+                    }
+                    try {
+                        console.log('Video Downloaded');
+                        // combine video and audio
+                        const combine_command = `"${path.join(executablesDir, 'ffmpeg-mac')}" -i "${path.join(baseDir, 'OutputFiles/tmp')}/${video_download_id}.${videoForm}" -i "${path.join(baseDir, 'OutputFiles/tmp')}/${audio_download_id}.${audioForm}" -c:v copy -map 0:v:0 -map 1:a:0 -shortest "${download_path}"`;
+                        exec(combine_command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
+                            if (error) {
+                                console.error('Error combining video and audio:', error.message);
+                                return res.status(500).send('Error combining video and audio');
+                            }
+                            console.log('FFmpeg Output:', stdout); // Log stdout for debugging
+                            try {
+                                console.log('Video and Audio Combined');
+                                fs.rm(path.join(baseDir, 'OutputFiles/tmp'), { recursive: true, force: true }, (err) => {
+                                    if (err) {
+                                        console.error('Error removing temporary directory:', err);
+                                    } else {
+                                        console.log('Temporary directory removed successfully.');
+                                        res.send(JSON.stringify({ download_path }));
+                                    }
+                                });
+                            } catch (e) {
+                                console.error(e);
+                                res.status(500).send('Error combining video and audio');
+                            }
+                        });
+                    } catch (e) {
+                        console.error(e);
+                        res.status(500).send('Error downloading video');
+                    }
+                });
+            } catch (e) {
+                console.error(e);
+                res.status(500).send('Error downloading audio');
+            }
+        });
     } else {
         const video_download_id = uuidv4();
-        
+
         const command = `"${path.join(executablesDir, 'yt-dlp-mac')}"${parameters} -f "${videoFormat}" "${videoUrl}" -o "${path.join(baseDir, 'OutputFiles')}/${video_download_id}.${videoType}"`;
         exec(command, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
             if (error) {

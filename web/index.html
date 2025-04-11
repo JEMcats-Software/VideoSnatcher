@@ -350,7 +350,7 @@
                                         current_vid_options.push({
                                             res: videoOption.res,
                                             contains: "combined",
-                                            format: videoOption.format,
+                                            format: `vid: ${videoOption.format}, aud: ${lastAudioOption.format}`,
                                             size: videoOption.size,
                                             id: `vid: ${videoOption.id}, aud: ${lastAudioOption.id}`,
                                             url: videoOption.url,
