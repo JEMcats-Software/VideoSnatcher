@@ -3,6 +3,7 @@
 VideoSnatcher by JEMcats-Software allows for you to download videos from Youtube and similer platforms.
 
 ## To-Do List
+- [ ] Audio Extraction For Video Only Instances
 - [ ] Fix The Problems Of Youtube Outputs (m4a's work best)
 - [ ] Add Dark Mode
 - [ ] Add Windows Support
@@ -42,3 +43,4 @@ No closed-source forks or redistributions allowed.
 ## Credits
 
 - [YT-DLP](https://github.com/yt-dlp/yt-dlp) (The runtime that make this possible)
+- [FFMPEG](https://github.com/FFmpeg/FFmpeg) (Combines video and audio + extracts audio)
