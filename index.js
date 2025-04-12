@@ -388,7 +388,9 @@ expressApp.get('/get_vid', (req, res) => {
             res.setHeader('Content-Type', 'video/webm');
         }
     } else if (ext === '.mp3') {
-        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Type', 'audio/mp3');
+        } else if (ext === '.m4a') {
+        res.setHeader('Content-Type', 'audio/m4a');
     } else {
         res.setHeader('Content-Type', 'application/octet-stream');
     }

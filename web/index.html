@@ -6,10 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VideoSnatcher</title>
     <style>
-        button :disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
+        button:disabled {
+            background-color: #ccc !important;
+            cursor: not-allowed !important;
         }
+
+        button:disabled:hover {
+            background-color: #ccc !important;
+            cursor: not-allowed !important;
+        }
+
         /* Loader styles remain unchanged */
         .loader {
             --s: 20px;
@@ -232,25 +238,29 @@
                 .then(response => {
                     if (response.status === 200) {
                         response.json().then(data => {
-                            const a = document.createElement('a');
-                            a.href = `http://localhost:${getParam("port")}/get_vid?path=${encodeURIComponent(data.path)}`;
-                            if (data.path) {
-                                a.download = data.path.split('/').pop();
+                            let outputFormat;
+                            if (format.includes('vid') && format.includes('aud')) {
+                                const [videoForm, audioForm] = format
+                                    .split(',')
+                                    .map(part => part.split(':')[1].trim());
+                                outputFormat = videoForm;
                             } else {
-                                alert("Download path is undefined. Please try again.");
-                                document.querySelectorAll("button").forEach(button => {
-                                    button.disabled = false;
-                                });
-                                document.getElementById("downloader_loader").style.display = "none";
-                                return;
+                                outputFormat = format;
                             }
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            document.querySelectorAll("button").forEach(button => {
-                                button.disabled = false;
-                            });
-                            document.getElementById("downloader_loader").style.display = "none";
+                            const a = document.createElement('a');
+                            fetch(`http://localhost:${getParam("port")}/get_vid?path=${encodeURIComponent(data.path)}`)
+                                .then(response => response.blob())
+                                .then(blob => {
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    a.href = blobUrl;
+                                    console.log(outputFormat)
+                                    a.download = `download.${outputFormat}`;
+                                    a.click();
+                                    document.querySelectorAll("button").forEach(button => {
+                                        button.disabled = false;
+                                    });
+                                    document.getElementById("downloader_loader").style.display = "none";
+                                });
                         });
                     } else {
                         response.text().then(text => {
@@ -292,7 +302,6 @@
             const result = {};
             result.id = arr[0];
             result.url = url;
-            console.log(pass)
             if (pass) {
                 result.pass = pass;
             }
