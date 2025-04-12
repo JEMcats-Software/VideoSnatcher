@@ -57,6 +57,7 @@
   "dependencies": {
     "dialogs": "^2.0.1",
     "express": "^4.21.2",
+    "ts-ebml": "^3.0.1",
     "uuid": "^11.1.0",
     "yt-dlp-wrap": "^2.3.12"
   }

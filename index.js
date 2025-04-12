@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const https = require('https'); // Add this import
 const { v4: uuidv4 } = require('uuid');
+const { Decoder } = require('ts-ebml');
 
 
 const expressApp = express();
@@ -275,7 +276,7 @@ expressApp.get('/download_vid', (req, res) => {
                                         console.error('Error removing temporary directory:', err);
                                     } else {
                                         console.log('Temporary directory removed successfully.');
-                                        res.send(JSON.stringify({ download_path }));
+                                        res.send(JSON.stringify({ path: download_path }));
                                     }
                                 });
                             } catch (e) {
@@ -304,7 +305,7 @@ expressApp.get('/download_vid', (req, res) => {
             }
             try {
                 const download_path = `${path.join(baseDir, 'OutputFiles')}/${video_download_id}.${videoType}`
-                res.send(JSON.stringify({ download_path }));
+                res.send(JSON.stringify({ path: download_path }));
             } catch (e) {
                 console.error(e);
                 res.status(500).send('Error downloading video');
@@ -351,6 +352,47 @@ app.whenReady().then(() => {
         'https://jemcats.software/github_pages/VideoSnatcher/files/ffmpeg-mac'
     );
     createMainWindow();
+});
+
+expressApp.get('/get_vid', (req, res) => {
+    const videoPath = req.query.path;
+
+    if (!videoPath) return res.status(400).send('Missing "path" parameter');
+
+    const stream = fs.createReadStream(videoPath);
+    stream.on('error', (err) => {
+        console.error(err);
+        res.status(500).send('Error reading video file');
+    });
+    const ext = path.extname(videoPath).toLowerCase();
+    if (ext === '.mp4') {
+        const stat = fs.statSync(videoPath);
+        const ebmlDecoder = new Decoder();
+        const fileBuffer = fs.readFileSync(videoPath);
+        const elements = ebmlDecoder.decode(fileBuffer);
+        const isAudioOnly = elements.some(element => element.name === 'TrackType' && element.value === 2); // Check if the file contains audio-only tracks
+        if (isAudioOnly) {
+            res.setHeader('Content-Type', 'audio/mp4');
+        } else {
+            res.setHeader('Content-Type', 'video/mp4');
+        }
+    } else if (ext === '.webm') {
+        const stat = fs.statSync(videoPath);
+        const ebmlDecoder = new Decoder();
+        const fileBuffer = fs.readFileSync(videoPath);
+        const elements = ebmlDecoder.decode(fileBuffer);
+        const isAudioOnly = elements.some(element => element.name === 'TrackType' && element.value === 2); // Check if the file contains audio-only tracks
+        if (isAudioOnly) {
+            res.setHeader('Content-Type', 'audio/webm');
+        } else {
+            res.setHeader('Content-Type', 'video/webm');
+        }
+    } else if (ext === '.mp3') {
+        res.setHeader('Content-Type', 'audio/mpeg');
+    } else {
+        res.setHeader('Content-Type', 'application/octet-stream');
+    }
+    stream.pipe(res);
 });
 
 app.on('window-all-closed', () => {

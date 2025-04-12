@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VideoSnatcher</title>
     <style>
+        button :disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
         /* Loader styles remain unchanged */
         .loader {
             --s: 20px;
@@ -166,7 +170,8 @@
             <input id="url_input" type="text" placeholder="Enter video URL..." class="input-field">
             <button onclick="get_options()" class="submit-btn">Download</button>
         </div>
-        <input id="vimeo_pass" style="display: none;" type="text" placeholder="Enter video password. If there is none, please leave blank." class="input-field-rounded">
+        <input id="vimeo_pass" style="display: none;" type="text"
+            placeholder="Enter video password. If there is none, please leave blank." class="input-field-rounded">
         <p onclick="view_supported()" class="link-blue">Over 900 sites supported!</p>
         <div id="loader" style="margin-bottom: 10px; display: none;" class="loader mx-auto"></div>
     </div>
@@ -174,7 +179,8 @@
         <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
             <thead>
                 <tr style="background-color: #f1f5f9; /* Tailwind's bg-gray-200 */">
-                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb; /* Tailwind's border-gray-300 */">Resolution</th>
+                    <th style="padding: 0.5rem; border: 1px solid #e5e7eb; /* Tailwind's border-gray-300 */">Resolution
+                    </th>
                     <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Contains</th>
                     <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Format</th>
                     <th style="padding: 0.5rem; border: 1px solid #e5e7eb;">Size</th>
@@ -185,7 +191,8 @@
                 <!-- Rows will be dynamically added here -->
             </tbody>
         </table>
-        <div id="downloader_loader" style="margin-bottom: 10px; margin-top: 10px; display: none;" class="loader mx-auto"></div>
+        <div id="downloader_loader" style="margin-bottom: 10px; margin-top: 10px; display: none;"
+            class="loader mx-auto"></div>
         <script>
             function populateTable(options) {
                 const tableBody = document.getElementById("video_options_table");
@@ -209,35 +216,61 @@
             }
         </script>
     </div>
-        <script>
-            function downloadVideo(id, url, pass, format) {
-                document.getElementById("downloader_loader").style.display = "";
-                let fetch_url;
-                if (pass && pass !== "undefined") {
-                    fetch_url = `http://localhost:${getParam("port")}/download_vid?url=${url}&id=${id}&vimeoPass=${pass}&type=${format}`;
-                } else {
-                    fetch_url = `http://localhost:${getParam("port")}/download_vid?url=${url}&id=${id}&format=${format}`;
-                }
-                fetch(fetch_url)
-                    .then(response => {
-                        if (response.status === 200) {
-                            response.json().then(data => {
-                                alert("Download finished!");
-                                document.getElementById("downloader_loader").style.display = "none";
-                            });
-                        } else {
-                            response.text().then(text => {
-                                alert("Failed to start download. Please try again.");
-                                document.getElementById("downloader_loader").style.display = "none";
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        alert("Failed to start download. Please try again.");
-                        document.getElementById("downloader_loader").style.display = "none";
-                    });
+    <script>
+        function downloadVideo(id, url, pass, format) {
+            document.querySelectorAll("button").forEach(button => {
+                button.disabled = true;
+            });
+            document.getElementById("downloader_loader").style.display = "";
+            let fetch_url;
+            if (pass && pass !== "undefined") {
+                fetch_url = `http://localhost:${getParam("port")}/download_vid?url=${url}&id=${id}&vimeoPass=${pass}&format=${format}`;
+            } else {
+                fetch_url = `http://localhost:${getParam("port")}/download_vid?url=${url}&id=${id}&format=${format}`;
             }
-        </script>
+            fetch(fetch_url)
+                .then(response => {
+                    if (response.status === 200) {
+                        response.json().then(data => {
+                            const a = document.createElement('a');
+                            a.href = `http://localhost:${getParam("port")}/get_vid?path=${encodeURIComponent(data.path)}`;
+                            if (data.path) {
+                                a.download = data.path.split('/').pop();
+                            } else {
+                                alert("Download path is undefined. Please try again.");
+                                document.querySelectorAll("button").forEach(button => {
+                                    button.disabled = false;
+                                });
+                                document.getElementById("downloader_loader").style.display = "none";
+                                return;
+                            }
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            document.querySelectorAll("button").forEach(button => {
+                                button.disabled = false;
+                            });
+                            document.getElementById("downloader_loader").style.display = "none";
+                        });
+                    } else {
+                        response.text().then(text => {
+                            alert("Failed to start download. Please try again.");
+                            document.querySelectorAll("button").forEach(button => {
+                                button.disabled = false;
+                            });
+                            document.getElementById("downloader_loader").style.display = "none";
+                        });
+                    }
+                })
+                .catch(error => {
+                    alert("Failed to start download. Please try again.");
+                    document.querySelectorAll("button").forEach(button => {
+                        button.disabled = false;
+                    });
+                    document.getElementById("downloader_loader").style.display = "none";
+                });
+        }
+    </script>
     </div>
     <script>
         document.getElementById('url_input').addEventListener('input', function (event) {
@@ -245,16 +278,16 @@
             const inputValue = inputField.value;
 
             if (inputValue.includes("vimeo.com")) {
-            document.getElementById("vimeo_pass").style.display = "block";
+                document.getElementById("vimeo_pass").style.display = "block";
             } else {
-            document.getElementById("vimeo_pass").style.display = "none";
+                document.getElementById("vimeo_pass").style.display = "none";
             }
         });
 
         let download_stage = 0;
         let current_vid_options = [];
         const urlParams = new URLSearchParams(window.location.search);
-        
+
         function parseArrayToDictionary(arr, url, pass) {
             const result = {};
             result.id = arr[0];
@@ -271,7 +304,7 @@
                 } else if (value.endsWith('iB')) {
                     result.size = value;
                     result.size = result.size.replace("~", "")
-                } else if (['mp4', 'mp3', 'webm'].includes(value)) {
+                } else if (['mp4', 'mp3', 'webm', 'm4a'].includes(value)) {
                     result.format = value;
                 }
             });
@@ -345,7 +378,7 @@
                                 const audioOnlyOptions = current_vid_options.filter(opt => opt.contains === "audio only");
 
                                 videoOnlyOptions.forEach(videoOption => {
-                                    const lastAudioOption = audioOnlyOptions[audioOnlyOptions.length - 1];
+                                    const lastAudioOption = audioOnlyOptions.slice().reverse().find(opt => opt.format === "mp4");
                                     if (lastAudioOption) {
                                         current_vid_options.push({
                                             res: videoOption.res,
