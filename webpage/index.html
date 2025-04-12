@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JEMcats VideoSnatcher</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            text-align: center;
+            transition: align-items 1s ease-in-out;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            transition: 1s ease;
+            transform: translateY(22px);
+        }
+
+        p {
+            font-size: 1.2rem;
+            transition: opacity 1s ease;
+        }
+
+        button {
+            border-radius: 10px;
+            background: linear-gradient(to right, #F0BE5A, #E35345);
+            border: 2px solid black;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        button:hover {
+            box-shadow: 0 0 5px 2px rgba(234, 137, 80, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <div style="position: absolute; top: 20px; left: 20px;">
+        <img onclick="window.location = 'index.html'" src="icon.png" alt="LocalSpeech Logo" style="cursor: pointer; height: 50px;">
+    </div>
+    <div id="logo_title">
+        <h1 id="header">VideoSnatcher</h1>
+        <p style="opacity: 0;" id="short_discript">The Easy Way To Download Content.</p>
+    </div>
+    <div id="main_content" style="opacity: 0; transition: 1s ease;" >
+        <p>Ready to try it out? Our just read the docs.</p>
+        <button onclick="window.location = 'https://github.com/JEMcats-Software/VideoSnatcher/releases/latest'" style="font-size: 17px; width: 100px; height: 50px;">Download</button>
+        <button onclick="window.location = 'docs/index.html'" style="font-size: 17px; width: 100px; height: 50px;">Docs</button>
+    </div>
+</body>
+<script>
+    onload = function () {
+        setTimeout(() => {
+            document.getElementById("header").style.transition = "0s";
+            const shortDiscript = document.getElementById("short_discript");
+            shortDiscript.style.display = '';
+            shortDiscript.style.opacity = "1";
+            document.getElementById("header").style.transform = "0s";
+            setTimeout(() => {
+                const logoTitle = document.getElementById("logo_title");
+                logoTitle.style.transition = "1s ease";
+                logoTitle.style.transform = "translateY(calc(-36vh + 50px))";
+                setTimeout(() => {
+                    document.getElementById('main_content').style.opacity = "1";
+                }, 1000);
+            }, 1000);
+        }, 500);
+    }
+</script>
+
+</html>

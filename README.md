@@ -8,6 +8,8 @@ VideoSnatcher by JEMcats-Software allows for you to download videos from Youtube
 - [ ] Add Dark Mode
 - [ ] Add Windows Support
 - [ ] Add Download Progress Bar
+- [ ] Add Website
+- [ ] Write Documentation
 - [ ] Launch v1.0.0-beta
 
 ## Requirements
