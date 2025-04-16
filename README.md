@@ -4,7 +4,6 @@ VideoSnatcher by JEMcats-Software allows for you to download videos from Youtube
 
 ## To-Do List
 - [ ] Batch Downloads
-- [ ] Fix Saving Videos
 - [ ] Audio Extraction For Video Only Instances
 - [ ] Fix The Problems Of Youtube Outputs (m4a's work best)
 - [ ] Add Dark Mode
@@ -12,15 +11,10 @@ VideoSnatcher by JEMcats-Software allows for you to download videos from Youtube
 - [ ] Add Download Progress Bar
 - [ ] Write Documentation
 - [ ] Add Customizable Output Path
+- [x] Fix Saving Videos
 - [x] Auto Install Rosetta
 - [x] Add Website
 - [x] Launch v1.0.0-beta
-
-## Requirements
-You MUST have Rosetta installed if you are on a Mac with Apple Silicon. To do so please run this command in terminal.
-```
-/usr/sbin/softwareupdate --install-rosetta
-```
 
 ## Support
 For questions open a discussion.
