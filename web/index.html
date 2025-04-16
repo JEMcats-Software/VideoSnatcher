@@ -237,25 +237,25 @@
             fetch(fetch_url)
                 .then(response => {
                     if (response.status === 200) {
+
                         response.json().then(data => {
-                            let outputFormat;
-                            if (format.includes('vid') && format.includes('aud')) {
-                                const [videoForm, audioForm] = format
-                                    .split(',')
-                                    .map(part => part.split(':')[1].trim());
-                                outputFormat = videoForm;
-                            } else {
-                                outputFormat = format;
-                            }
-                            const a = document.createElement('a');
-                            fetch(`http://localhost:${getParam("port")}/get_vid?path=${encodeURIComponent(data.path)}`)
-                                .then(response => response.blob())
-                                .then(blob => {
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    a.href = blobUrl;
-                                    console.log(outputFormat)
-                                    a.download = `download.${outputFormat}`;
-                                    a.click();
+                            fetch(`http://localhost:${getParam("port")}/get_vid?path=${data.path}`)
+                                .then(response => {
+                                    if (response.status === 200) {
+                                        document.querySelectorAll("button").forEach(button => {
+                                            button.disabled = false;
+                                        });
+                                        document.getElementById("downloader_loader").style.display = "none";
+                                    } else {
+                                        alert("Failed to start download. Please try again.");
+                                        document.querySelectorAll("button").forEach(button => {
+                                            button.disabled = false;
+                                        });
+                                        document.getElementById("downloader_loader").style.display = "none";
+                                    }
+                                })
+                                .catch(error => {
+                                    alert("Failed to start download. Please try again.");
                                     document.querySelectorAll("button").forEach(button => {
                                         button.disabled = false;
                                     });

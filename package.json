@@ -1,12 +1,12 @@
 {
   "name": "videosnatcher",
-  "version": "1.0.0",
+  "version": "1.0.1-beta",
   "description": "Download YouTube, Vimeo, and Other Videos with Ease",
   "main": "index.js",
   "scripts": {
     "start": "electron .",
     "build-dev": "electron-builder --mac --universal --publish never",
-    "build-deploy": "electron-builder --mac --universal --publish never && xcrun notarytool submit dist/VideoSnatcher-1.0.0-universal.dmg --keychain-profile jemcats-dev-icloud-pass --wait"
+    "build-deploy": "electron-builder --mac --universal --publish never && xcrun notarytool submit dist/VideoSnatcher-1.0.1-beta-universal.dmg --keychain-profile jemcats-dev-icloud-pass --wait"
   },
   "repository": {
     "type": "git",
@@ -42,8 +42,10 @@
     },
     "mac": {
       "icon": "assets/appicon.icns",
-      "identity": null,
-      "target": "dmg"
+      "identity": "88SX8P69PX",
+      "target": "dmg",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "linux": {
       "icon": "assets/appicon.ico",

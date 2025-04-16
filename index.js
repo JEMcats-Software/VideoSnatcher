@@ -7,12 +7,13 @@ const os = require('os');
 const https = require('https'); // Add this import
 const { v4: uuidv4 } = require('uuid');
 const { Decoder } = require('ts-ebml');
+const { shell } = require('electron');
 
+let savePath = path.join(os.homedir(), 'Downloads');
 
 const expressApp = express();
 let serverPort, ytWin;
 let youtubeCookies = "";
-
 const baseDir = path.join(os.homedir(), 'Library/Application Support/videosnatcher');
 const logsDir = path.join(baseDir, 'logs');
 const liveLogPath = path.join(logsDir, 'live.log');
@@ -347,6 +348,13 @@ app.whenReady().then(() => {
         path.join(executablesDir, 'yt-dlp-mac'),
         'https://jemcats.software/github_pages/VideoSnatcher/files/yt-dlp-mac'
     );
+    exec('/usr/sbin/softwareupdate --install-rosetta --agree-to-license', (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error installing Rosetta: ${error.message}`);
+        } else {
+            console.log('Rosetta installed successfully.');
+        }
+    });
     ensureFile(
         path.join(executablesDir, 'ffmpeg-mac'),
         'https://jemcats.software/github_pages/VideoSnatcher/files/ffmpeg-mac'
@@ -359,42 +367,17 @@ expressApp.get('/get_vid', (req, res) => {
 
     if (!videoPath) return res.status(400).send('Missing "path" parameter');
 
-    const stream = fs.createReadStream(videoPath);
-    stream.on('error', (err) => {
-        console.error(err);
-        res.status(500).send('Error reading video file');
+    const destinationPath = path.join(savePath, path.basename(videoPath));
+
+    fs.rename(videoPath, destinationPath, (err) => {
+        if (err) {
+            console.error('Error moving file:', err);
+            return res.status(500).send('Error moving file');
+        }
+        shell.showItemInFolder(destinationPath);
+        res.send(JSON.stringify({ path: destinationPath }));
     });
-    const ext = path.extname(videoPath).toLowerCase();
-    if (ext === '.mp4') {
-        const stat = fs.statSync(videoPath);
-        const ebmlDecoder = new Decoder();
-        const fileBuffer = fs.readFileSync(videoPath);
-        const elements = ebmlDecoder.decode(fileBuffer);
-        const isAudioOnly = elements.some(element => element.name === 'TrackType' && element.value === 2); // Check if the file contains audio-only tracks
-        if (isAudioOnly) {
-            res.setHeader('Content-Type', 'audio/mp4');
-        } else {
-            res.setHeader('Content-Type', 'video/mp4');
-        }
-    } else if (ext === '.webm') {
-        const stat = fs.statSync(videoPath);
-        const ebmlDecoder = new Decoder();
-        const fileBuffer = fs.readFileSync(videoPath);
-        const elements = ebmlDecoder.decode(fileBuffer);
-        const isAudioOnly = elements.some(element => element.name === 'TrackType' && element.value === 2); // Check if the file contains audio-only tracks
-        if (isAudioOnly) {
-            res.setHeader('Content-Type', 'audio/webm');
-        } else {
-            res.setHeader('Content-Type', 'video/webm');
-        }
-    } else if (ext === '.mp3') {
-        res.setHeader('Content-Type', 'audio/mp3');
-        } else if (ext === '.m4a') {
-        res.setHeader('Content-Type', 'audio/m4a');
-    } else {
-        res.setHeader('Content-Type', 'application/octet-stream');
-    }
-    stream.pipe(res);
+
 });
 
 app.on('window-all-closed', () => {
